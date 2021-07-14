@@ -1,3 +1,5 @@
+process.env.DISABLE_CONFIG_CACHE = "true"
+
 module.exports = {
   setupFiles: ["dotenv/config"],
   roots: [

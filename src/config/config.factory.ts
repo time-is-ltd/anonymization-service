@@ -22,12 +22,12 @@ export const configFactory = <T extends TransformMap>(transformMap: T, vaultKeys
   const azureKeyVaultName = process.env.AZURE_KEY_VAULT_NAME
   const isAzureKeyVaultEnabled = Boolean(azureKeyVaultName)
   const azureKeyVaultProvider = isAzureKeyVaultEnabled && fromAzureKeyVault<T>(azureKeyVaultName)
-
-  const getFactory = <K extends keyof T>(key: K) => {
-    const providers: Array<Provider<T, K>> = [
-      cacheProvider,
-      envVariableProvider
-    ]
+  const getFactory = <K extends keyof T> (key: K) => {
+    const providers: Array<Provider<T, K>> = []
+    if (!process.env.DISABLE_CONFIG_CACHE) {
+      providers.push(cacheProvider)
+    }
+    providers.push(envVariableProvider)
 
     // GCP
     const isVaultKey = vaultKeysAllowlist.includes(key as string)

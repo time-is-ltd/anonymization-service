@@ -5,25 +5,25 @@ import {
   listUserCalendarsSchema,
   listUserMessagesSchema
 } from './googleapis-schemas'
-import { containsNothingButDomains } from './test-utils'
+import { containsNothingButDomains, overrideEnvs, validateUsingSchema } from './test-utils'
 import * as request from 'supertest'
-import Ajv from 'ajv'
 
 const gsuite_test_user = process.env.GSUITE_TEST_USER
 const api_token = process.env.API_TOKEN
-const ajv = new Ajv()
+const env = Object.assign({}, process.env)
 
 let app
 let server
 
-const validateBodyUsingSchema = (body: Object, schema: Object) => {
-  const validate = ajv.compile(schema)
-  const valid = validate(body)
-  if (!valid) {
-    console.log(validate.errors)
-  }
-  expect(valid).toBeTruthy()
+const CONFIG_DEFAULT = {}
+const CONFIG_EXTRACT_DOMAINS = {
+  'EXTRACT_DOMAINS': true
 }
+
+afterEach(() => {
+  // reset envs back to their original state
+  process.env = env
+})
 
 beforeAll(async () => {
   app = await bootstrap()
@@ -69,43 +69,51 @@ test('invalid bearer returns 403', async () => {
     .expect(403)
 })
 
-test('can list gsuite emails', async () => {
+test.each([CONFIG_DEFAULT, CONFIG_EXTRACT_DOMAINS])('can list gsuite emails', async (config) => {
+  overrideEnvs(config)
   await request(app).get(`/www.googleapis.com/gmail/v1/users/${gsuite_test_user}/messages`)
     .set('Authorization', `Bearer ${api_token}`)
     .expect(200)
     .then((response) => {
-      validateBodyUsingSchema(response.body, listUserMessagesSchema)
+      validateUsingSchema(response.body, listUserMessagesSchema)
     })
 })
 
-test('can get individual gsuite email', async () => {
+test.each([CONFIG_DEFAULT, CONFIG_EXTRACT_DOMAINS])('can get individual gsuite email', async (config) => {
+  overrideEnvs(config)
   await request(app).get(`/www.googleapis.com/gmail/v1/users/${gsuite_test_user}/messages/17a0f96a2ab5ab11`)
     .set('Authorization', `Bearer ${api_token}`)
     .expect(200)
     .then((response) => {
-      validateBodyUsingSchema(response.body, getUserMessageSchema)
+      validateUsingSchema(response.body, getUserMessageSchema)
     })
 })
 
-test('can list gsuite calendars', async () => {
+test.each([CONFIG_DEFAULT, CONFIG_EXTRACT_DOMAINS])('can list gsuite calendars', async (config) => {
+  overrideEnvs(config)
   await request(app).get(`/www.googleapis.com/calendar/v3/users/${gsuite_test_user}/calendarList`)
     .set('Authorization', `Bearer ${api_token}`)
     .then((response) => {
-      validateBodyUsingSchema(response.body, listUserCalendarsSchema)
+      validateUsingSchema(response.body, listUserCalendarsSchema)
     })
 })
 
-test('can list gsuite calendar events', async () => {
+test.each([CONFIG_DEFAULT, CONFIG_EXTRACT_DOMAINS])('can list gsuite calendar events', async (config) => {
+  overrideEnvs(config)
   await request(app).get(`/www.googleapis.com/calendar/v3/users/${gsuite_test_user}/calendars/${gsuite_test_user}/events`)
     .set('Authorization', `Bearer ${api_token}`)
     .then((response) => {
-      validateBodyUsingSchema(response.body, listCalendarEventsSchema)
+      validateUsingSchema(response.body, listCalendarEventsSchema)
       Object.values(response.body.items).forEach(event => {
         containsNothingButDomains(event['summary'])
         containsNothingButDomains(event['description'])
       })
     })
 })
+
+//
+// Helpers
+//
 
 
 
